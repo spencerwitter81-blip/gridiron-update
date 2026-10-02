@@ -3,7 +3,7 @@
   "use strict";
 
   var PAGE = document.body.getAttribute("data-page") || "home";
-  var FILES = ["meta", "nfl", "cfb", "broncos", "boston-college", "florida", "golf", "lacrosse"];
+  var FILES = ["meta", "nfl", "cfb", "broncos", "boston-college", "florida", "fantasy", "golf", "lacrosse"];
   var MY_IDS = { "7": "broncos", "103": "boston-college", "57": "florida" };
   var D = {};
 
@@ -16,10 +16,11 @@
     ["broncos", "broncos.html", "Broncos"],
     ["boston-college", "boston-college.html", "Boston College"],
     ["florida", "florida.html", "Gators"],
+    ["fantasy", "fantasy.html", "Fantasy"],
     ["golf", "golf.html", "Golf"],
     ["lacrosse", "lacrosse.html", "Lacrosse"]
   ];
-  var FOOTBALL = ["nfl", "cfb", "sec", "acc", "broncos", "boston-college", "florida"];
+  var FOOTBALL = ["nfl", "cfb", "sec", "acc", "broncos", "boston-college", "florida", "fantasy"];
 
   /* ---------------- helpers ---------------- */
   function esc(s) {
@@ -223,7 +224,7 @@
     function li(k, h, t) { return '<li><a href="' + h + '" class="' + (k === PAGE ? "on" : "") + '">' + t + "</a></li>"; }
     return '<aside class="side rail"><h4>Football</h4><ul>' + li("nfl", "nfl.html", "NFL") + li("cfb", "college-football.html", "College Football") +
       li("sec", "sec.html", "SEC") + li("acc", "acc.html", "ACC") + "</ul><h4>My Teams</h4><ul>" +
-      li("broncos", "broncos.html", "Denver Broncos") + li("boston-college", "boston-college.html", "Boston College") + li("florida", "florida.html", "Florida Gators") +
+      li("broncos", "broncos.html", "Denver Broncos") + li("boston-college", "boston-college.html", "Boston College") + li("florida", "florida.html", "Florida Gators") + li("fantasy", "fantasy.html", "My Fantasy Team") +
       "</ul><h4>Other Sports</h4><ul>" + li("golf", "golf.html", "Golf") + li("lacrosse", "lacrosse.html", "Lacrosse") + "</ul>" +
       '<div class="ad"><b>HOW UPDATES WORK</b>New data is pulled about once an hour (GitHub can run it a few minutes late). The time of the last pull is shown at the top of every page.</div></aside>';
   }
@@ -422,12 +423,94 @@
     return layout(main, side, true);
   };
 
+  /* ---------------- fantasy ---------------- */
+  var SCORE = "ppr";
+  try { SCORE = localStorage.getItem("gu-scoring") || "ppr"; } catch (e) { /* storage unavailable */ }
+  var SCORE_LABEL = { ppr: "PPR", std: "Standard" };
+  function pts(v) { return v == null ? "&ndash;" : (Math.round(v * 10) / 10).toFixed(1); }
+  function injBadge(st) {
+    if (!st || st === "ACTIVE") return "";
+    var txt = st.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    return ' <span class="inj">' + esc(txt) + "</span>";
+  }
+  function gameCell(g) {
+    if (!g) return '<span class="time">Not on this week\'s NFL schedule (bye)</span>';
+    var opp = g.at + " " + img(g.oppLogo, "") + " " + esc(g.opp);
+    var when = g.state === "pre" ? esc(fmtDate(g.date)) + (g.tv ? " &middot; " + esc(g.tv) : "")
+      : (g.state === "in" ? '<span class="L">LIVE</span> ' : "") + esc(g.score) + " &middot; " + esc(g.detail);
+    return '<span class="tm">' + opp + '</span><div class="time">' + (g.link ? ext(g.link, when) : when) + "</div>";
+  }
+
+  pages.fantasy = function () {
+    var f = D.fantasy || {};
+    var ps = f.players || [];
+    if (!ps.length) return layout(box("My Fantasy Team", empty("Fantasy data isn't available right now. It will try again on the next hourly update.")), "");
+    var wk = f.week || 0;
+    var cols = []; for (var w = 1; w <= wk; w++) cols.push(w);
+    var sum = function (fn) { var t = 0, n = 0; ps.forEach(function (p) { var v = fn(p.scoring[SCORE] || {}); if (v != null) { t += v; n++; } }); return n ? t : null; };
+    var projTotal = sum(function (s) { return s.projWeek; });
+    var seasonTotal = sum(function (s) { return s.total; });
+    var lastWk = sum(function (s) { return (s.weeks || {})[wk - 1]; });
+
+    var toggle = '<div class="tabs" role="tablist">' + ["ppr", "std"].map(function (k) {
+      return '<button data-score="' + k + '" class="' + (k === SCORE ? "on" : "") + '">' + SCORE_LABEL[k] + " scoring</button>";
+    }).join("") + "</div>";
+    var facts = '<div class="factgrid">' +
+      '<div class="fact"><b>' + pts(projTotal) + "</b><span>Week " + wk + " projection (sum of ESPN's)</span></div>" +
+      '<div class="fact"><b>' + pts(lastWk) + "</b><span>Week " + (wk - 1) + " actual</span></div>" +
+      '<div class="fact"><b>' + pts(seasonTotal) + "</b><span>Season total</span></div>" +
+      '<div class="fact"><b>' + ps.length + "</b><span>Players tracked</span></div></div>";
+
+    var head = "<tr><th>Pos</th><th>Player</th><th>Week " + wk + " Game</th><th class=\"c\">Proj</th>" +
+      cols.map(function (w) { return '<th class="c">W' + w + "</th>"; }).join("") + '<th class="c">Total</th><th class="c">Avg</th><th class="c">Rostered</th></tr>';
+    var rows = ps.map(function (p) {
+      var sc = p.scoring[SCORE] || {}, weeks = sc.weeks || {};
+      var played = Object.keys(weeks).filter(function (k) { return +k < wk || (p.game && p.game.state !== "pre"); });
+      var avg = played.length && sc.total != null ? sc.total / played.length : null;
+      return "<tr><td><b>" + esc(p.slot) + "</b></td>" +
+        '<td><span class="tm">' + img(p.headshot, "", "hs") + "<span><b>" + esc(p.name) + "</b>" + injBadge(p.injuryStatus) + '<br><span class="time">' + esc(p.position || "") + " &middot; " + esc(p.teamAbbr || "") + "</span></span></span></td>" +
+        "<td>" + gameCell(p.game) + "</td>" +
+        '<td class="c"><b>' + pts(sc.projWeek) + "</b></td>" +
+        cols.map(function (w) { return '<td class="c">' + pts(weeks[w]) + "</td>"; }).join("") +
+        '<td class="c"><b>' + pts(sc.total) + '</b></td><td class="c">' + pts(avg) + '</td><td class="c">' + (p.owned != null ? Math.round(p.owned) + "%" : "&ndash;") + "</td></tr>";
+    }).join("");
+    var table = '<div class="tscroll"><table class="t ff">' + head + rows + "</table></div>";
+
+    var cards = ps.map(function (p) {
+      var stats = "";
+      if (p.statLabels && p.seasonStats) {
+        stats = '<div class="tscroll"><table class="t"><tr>' + p.statLabels.map(function (l) { return '<th class="c">' + esc(l) + "</th>"; }).join("") + "</tr><tr>" +
+          p.seasonStats.map(function (v) { return '<td class="c">' + esc(v) + "</td>"; }).join("") + "</tr></table></div>";
+      }
+      var note = p.note ? '<div class="pnote"><b>' + esc(p.note.headline) + "</b> " + esc(p.note.story || "") + ' <span class="time">RotoWire via ESPN &middot; ' + esc(p.note.published || "") + "</span></div>" : "";
+      var nws = p.news && p.news.length ? heads(p.news, 4) : empty("No recent stories mentioning " + (p.name || "this player") + ".");
+      return box(esc(p.slot) + " &middot; " + esc(p.name) + (p.team ? " &middot; " + esc(p.team) : ""),
+        (stats ? '<div class="kicker">' + f.season + " season stats</div>" + stats : "") + note + '<div style="margin-top:6px">' + nws + "</div>", { cls: "blk" });
+    }).join("");
+
+    var main = box("My Fantasy Team &middot; " + esc(f.season) + " Week " + wk,
+      toggle + '<div class="note">Points and projections come from ESPN Fantasy\'s default ' + SCORE_LABEL[SCORE] + " scoring. If your league uses different settings, your actual points will differ.</div>" + facts + table) +
+      cards;
+
+    var mine = {}; ps.forEach(function (p) { if (p.teamId) mine[p.teamId] = 1; });
+    var games = (((D.nfl || {}).scoreboard || {}).games || []).filter(function (g) { return mine[g.home.id] || mine[g.away.id]; });
+    var side = box("Games With Your Players", games.length ? '<div class="scores" style="grid-template-columns:1fr">' + games.map(scoreCard).join("") + "</div>" : empty("None on the board."));
+    return layout(main, side);
+  };
+
   /* ---------------- boot ---------------- */
   function render() {
     var fn = pages[PAGE] || pages.home;
     var app = document.getElementById("app");
     app.innerHTML = chrome(fn());
-    app.querySelectorAll(".tabs button").forEach(function (b) {
+    app.querySelectorAll("[data-score]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        SCORE = b.getAttribute("data-score");
+        try { localStorage.setItem("gu-scoring", SCORE); } catch (e) { /* storage unavailable */ }
+        render();
+      });
+    });
+    app.querySelectorAll(".tabs button[data-tab]").forEach(function (b) {
       b.addEventListener("click", function () {
         var i = b.getAttribute("data-tab");
         app.querySelectorAll(".tabs button").forEach(function (x) { x.classList.toggle("on", x === b); });

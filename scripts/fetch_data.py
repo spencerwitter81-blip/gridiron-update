@@ -335,6 +335,122 @@ def golf_board(tour):
     }
 
 
+# ---------- Fantasy football ----------
+# ESPN player IDs, confirmed via ESPN's player search.
+FANTASY_ROSTER = [
+    ("4426338", "QB"),   # Bo Nix
+    ("4429795", "RB"),   # Jahmyr Gibbs
+    ("4567048", "RB"),   # Kenneth Walker III
+    ("4428331", "WR"),   # Rashee Rice
+    ("4701936", "WR"),   # Matthew Golden
+    ("3128429", "WR"),   # Courtland Sutton
+    ("2576925", "TE"),   # Darren Waller
+    ("-16033", "D/ST"),  # Ravens D/ST
+    ("4574716", "K"),    # Harrison Mevis
+]
+FANTASY_API = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/%s/segments/0/leaguedefaults/%s?view=kona_player_info"
+SCORING = {"ppr": "3", "std": "1"}  # ESPN default league settings: 3 = PPR, 1 = standard
+
+
+def get_fantasy(season, week, scoring_id):
+    ids = [int(i) for i, _ in FANTASY_ROSTER]
+    flt = {"players": {"filterIds": {"value": ids},
+                       "filterStatsForTopScoringPeriodIds": {
+                           "value": 18,
+                           "additionalValue": ["00%s" % season, "10%s" % season, "11%s%s" % (season, week)]}}}
+    url = FANTASY_API % (season, scoring_id)
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "GridironUpdate/1.0", "X-Fantasy-Filter": json.dumps(flt)})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return {str(p["player"]["id"]): p["player"] for p in json.load(r).get("players", [])}
+    except Exception as e:  # noqa: BLE001
+        errors.append("fantasy %s -> %s" % (scoring_id, e))
+        return {}
+
+
+def fantasy_points(pl, season, week):
+    weeks, total, proj_week, proj_season = {}, None, None, None
+    for s in pl.get("stats", []):
+        if str(s.get("seasonId")) != str(season):
+            continue
+        src, split, per = s.get("statSourceId"), s.get("statSplitTypeId"), s.get("scoringPeriodId")
+        val = round(s.get("appliedTotal", 0), 2)
+        if src == 0 and split == 1:
+            weeks[str(per)] = val
+        elif src == 0 and split == 0:
+            total = val
+        elif src == 1 and split == 1 and per == week:
+            proj_week = val
+        elif src == 1 and split == 0:
+            proj_season = val
+    return {"weeks": weeks, "total": total, "projWeek": proj_week, "projSeason": proj_season}
+
+
+def fantasy(nfl_scoreboard):
+    season, week = nfl_scoreboard.get("season"), nfl_scoreboard.get("week")
+    if not season or not week:
+        errors.append("fantasy: unknown NFL season/week")
+        return {"players": []}
+    by_team = {}
+    for g in nfl_scoreboard.get("games", []):
+        by_team[g["home"]["id"]] = (g, "vs", g["away"])
+        by_team[g["away"]["id"]] = (g, "@", g["home"])
+    feeds = {k: get_fantasy(season, week, v) for k, v in SCORING.items()}
+    players = []
+    for pid, slot in FANTASY_ROSTER:
+        base = feeds["ppr"].get(pid) or feeds["std"].get(pid) or {}
+        team_id = str(base.get("proTeamId") or "")
+        p = {"id": pid, "slot": slot, "name": base.get("fullName"), "teamId": team_id,
+             "injuryStatus": base.get("injuryStatus"),
+             "owned": (base.get("ownership") or {}).get("percentOwned"),
+             "scoring": {k: fantasy_points(feeds[k].get(pid, {}), season, week) for k in SCORING}}
+        if pid.startswith("-"):
+            t = get("%s/football/nfl/teams/%s" % (SITE, team_id)).get("team", {})
+            p.update({"team": t.get("displayName"), "teamAbbr": t.get("abbreviation"), "headshot": logo_of(t),
+                      "position": "D/ST"})
+            nick = t.get("name") or ""
+            p["news"] = [a for a in news("football/nfl", 25, team=team_id)
+                         if nick and nick.lower() in ("%s %s" % (a["headline"], a.get("desc") or "")).lower()][:4]
+        else:
+            a = get("https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/%s" % pid).get("athlete", {})
+            ov = get("https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/%s/overview" % pid)
+            t = a.get("team") or {}
+            if t.get("id"):
+                team_id = str(t["id"])
+                p["teamId"] = team_id
+            st = ov.get("statistics") or {}
+            season_line = next((s.get("stats") for s in st.get("splits", []) if s.get("displayName") == "Regular Season"), None)
+            last = a.get("lastName") or (p["name"] or "").split(" ")[-1]
+            if last in ("III", "Jr.", "II"):
+                last = (p["name"] or "").split(" ")[-2]
+            rw = ov.get("rotowire") or {}
+            p.update({
+                "name": a.get("displayName") or p["name"],
+                "team": t.get("displayName"), "teamAbbr": t.get("abbreviation"),
+                "headshot": (a.get("headshot") or {}).get("href"),
+                "position": (a.get("position") or {}).get("abbreviation"),
+                "jersey": a.get("jersey"),
+                "status": (a.get("status") or {}).get("name"),
+                "statLabels": st.get("labels"),
+                "seasonStats": season_line,
+                "note": {"headline": rw.get("headline"), "story": rw.get("story"), "published": rw.get("published")} if rw.get("headline") else None,
+                "news": [{"headline": n.get("headline"), "desc": n.get("description"), "published": n.get("published"),
+                          "link": ((n.get("links") or {}).get("web") or {}).get("href")}
+                         for n in ov.get("news", []) if last and last.lower() in ("%s %s" % (n.get("headline"), n.get("description"))).lower()][:4],
+            })
+        m = by_team.get(team_id)
+        if m:
+            g, at, opp = m
+            p["game"] = {"at": at, "opp": opp["abbr"], "oppName": opp["name"], "oppLogo": opp["logo"], "date": g["date"],
+                         "state": g["state"], "detail": g["detail"], "tv": g["tv"], "link": g["link"],
+                         "score": None if g["state"] == "pre" else "%s-%s" % (
+                             (g["home"] if at == "vs" else g["away"])["score"], opp["score"])}
+        else:
+            p["game"] = None  # team not on this week's NFL scoreboard (bye week)
+        players.append(p)
+    return {"season": season, "week": week, "players": players}
+
+
 def write(name, obj):
     path = os.path.join(OUT, name + ".json")
     with open(path, "w") as f:
@@ -353,6 +469,7 @@ def main():
         "news": news("football/nfl", 16),
     }
     write("nfl", nfl)
+    write("fantasy", fantasy(nfl["scoreboard"]))
 
     # ---------- College football ----------
     sec = cfb_standings(SEC_GROUP)

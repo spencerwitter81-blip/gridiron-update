@@ -29,6 +29,7 @@ gh workflow run update.yml
 | `college-football.html` | Top 25 scoreboard, AP & Coaches polls, headlines |
 | `sec.html` / `acc.html` | Conference scoreboard, full standings, ranked teams, conference headlines |
 | `broncos.html` / `boston-college.html` / `florida.html` | Record, splits, scoring, last/next game, full schedule, standings, team news |
+| `fantasy.html` | Your fantasy roster: ESPN PPR/standard points by week, Week projections, matchups, injury status, season stats, player notes & news |
 | `golf.html` | Tabbed tour leaderboards and golf headlines |
 | `lacrosse.html` | PLL, NLL, NCAA scores and headlines |
 

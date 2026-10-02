@@ -214,6 +214,12 @@ table.t caption { text-align: left; font-weight: bold; padding: 6px 0 3px; color
 .mt .row:last-of-type { border-bottom: 0; }
 .mt .row span:first-child { color: var(--muted); font-weight: bold; font-size: 10px; text-transform: uppercase; }
 
+/* Fantasy */
+.inj { background: #c00; color: #fff; font-size: 9px; font-weight: bold; padding: 1px 4px; text-transform: uppercase; }
+table.t img.hs { width: 34px; height: 25px; object-fit: cover; object-position: top; background: #eee; border: 1px solid #ccc; }
+table.ff td { vertical-align: middle; }
+.pnote { background: #f6f6f6; border-left: 3px solid var(--red); padding: 5px 7px; margin-top: 6px; font-size: 11px; }
+
 /* Golf */
 table.t td.pos { font-weight: bold; width: 32px; }
 .flag { width: 16px; height: 11px; object-fit: cover; border: 1px solid #ccc; vertical-align: middle; }
