@@ -447,7 +447,8 @@
     if (!ps.length) return layout(box("My Fantasy Team", empty("Fantasy data isn't available right now. It will try again on the next hourly update.")), "");
     var wk = f.week || 0;
     var cols = []; for (var w = 1; w <= wk; w++) cols.push(w);
-    var sum = function (fn) { var t = 0, n = 0; ps.forEach(function (p) { var v = fn(p.scoring[SCORE] || {}); if (v != null) { t += v; n++; } }); return n ? t : null; };
+    var starters = ps.filter(function (p) { return (p.group || "Starters") === "Starters"; });
+    var sum = function (fn) { var t = 0, n = 0; starters.forEach(function (p) { var v = fn(p.scoring[SCORE] || {}); if (v != null) { t += v; n++; } }); return n ? t : null; };
     var projTotal = sum(function (s) { return s.projWeek; });
     var seasonTotal = sum(function (s) { return s.total; });
     var lastWk = sum(function (s) { return (s.weeks || {})[wk - 1]; });
@@ -456,18 +457,21 @@
       return '<button data-score="' + k + '" class="' + (k === SCORE ? "on" : "") + '">' + SCORE_LABEL[k] + " scoring</button>";
     }).join("") + "</div>";
     var facts = '<div class="factgrid">' +
-      '<div class="fact"><b>' + pts(projTotal) + "</b><span>Week " + wk + " projection (sum of ESPN's)</span></div>" +
-      '<div class="fact"><b>' + pts(lastWk) + "</b><span>Week " + (wk - 1) + " actual</span></div>" +
-      '<div class="fact"><b>' + pts(seasonTotal) + "</b><span>Season total</span></div>" +
-      '<div class="fact"><b>' + ps.length + "</b><span>Players tracked</span></div></div>";
+      '<div class="fact"><b>' + pts(projTotal) + "</b><span>Starters' Week " + wk + " projection (sum of ESPN's)</span></div>" +
+      '<div class="fact"><b>' + pts(lastWk) + "</b><span>Week " + (wk - 1) + " points by current starters</span></div>" +
+      '<div class="fact"><b>' + pts(seasonTotal) + "</b><span>Season points by current starters</span></div>" +
+      '<div class="fact"><b>' + ps.length + "</b><span>Players on roster</span></div></div>";
 
     var head = "<tr><th>Pos</th><th>Player</th><th>Week " + wk + " Game</th><th class=\"c\">Proj</th>" +
-      cols.map(function (w) { return '<th class="c">W' + w + "</th>"; }).join("") + '<th class="c">Total</th><th class="c">Avg</th><th class="c">Rostered</th></tr>';
+      cols.map(function (w) { return '<th class="c">W' + w + "</th>"; }).join("") + '<th class="c">Total</th><th class="c" title="Season total divided by weeks with a score entry (a 0.0 week may be a missed game)">Avg/Wk</th><th class="c">Rostered</th></tr>';
+    var lastGroup = null, ncol = 7 + cols.length;
     var rows = ps.map(function (p) {
+      var g = p.group || "Starters", sec = "";
+      if (g !== lastGroup) { lastGroup = g; sec = '<tr class="grp"><td colspan="' + ncol + '">' + esc(g === "IR" ? "Injured Reserve" : g) + "</td></tr>"; }
       var sc = p.scoring[SCORE] || {}, weeks = sc.weeks || {};
       var played = Object.keys(weeks).filter(function (k) { return +k < wk || (p.game && p.game.state !== "pre"); });
       var avg = played.length && sc.total != null ? sc.total / played.length : null;
-      return "<tr><td><b>" + esc(p.slot) + "</b></td>" +
+      return sec + '<tr class="' + (g === "Starters" ? "" : "res") + '"><td><b>' + esc(g === "Bench" ? "BN" : g === "IR" ? "IR" : p.slot) + "</b></td>" +
         '<td><span class="tm">' + img(p.headshot, "", "hs") + "<span><b>" + esc(p.name) + "</b>" + injBadge(p.injuryStatus) + '<br><span class="time">' + esc(p.position || "") + " &middot; " + esc(p.teamAbbr || "") + "</span></span></span></td>" +
         "<td>" + gameCell(p.game) + "</td>" +
         '<td class="c"><b>' + pts(sc.projWeek) + "</b></td>" +
@@ -476,7 +480,7 @@
     }).join("");
     var table = '<div class="tscroll"><table class="t ff">' + head + rows + "</table></div>";
 
-    var cards = ps.map(function (p) {
+    var card = function (p) {
       var stats = "";
       if (p.statLabels && p.seasonStats) {
         stats = '<div class="tscroll"><table class="t"><tr>' + p.statLabels.map(function (l) { return '<th class="c">' + esc(l) + "</th>"; }).join("") + "</tr><tr>" +
@@ -486,7 +490,9 @@
       var nws = p.news && p.news.length ? heads(p.news, 4) : empty("No recent stories mentioning " + (p.name || "this player") + ".");
       return box(esc(p.slot) + " &middot; " + esc(p.name) + (p.team ? " &middot; " + esc(p.team) : ""),
         (stats ? '<div class="kicker">' + f.season + " season stats</div>" + stats : "") + note + '<div style="margin-top:6px">' + nws + "</div>", { cls: "blk" });
-    }).join("");
+    };
+    var reserves = ps.filter(function (p) { return starters.indexOf(p) < 0; });
+    var cards = starters.map(card).join("") + (reserves.length ? '<details class="more"><summary>Bench &amp; IR player details (' + reserves.length + ")</summary>" + reserves.map(card).join("") + "</details>" : "");
 
     var main = box("My Fantasy Team &middot; " + esc(f.season) + " Week " + wk,
       toggle + '<div class="note">Points and projections come from ESPN Fantasy\'s default ' + SCORE_LABEL[SCORE] + " scoring. If your league uses different settings, your actual points will differ.</div>" + facts + table) +

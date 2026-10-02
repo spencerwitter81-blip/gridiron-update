@@ -338,22 +338,32 @@ def golf_board(tour):
 # ---------- Fantasy football ----------
 # ESPN player IDs, confirmed via ESPN's player search.
 FANTASY_ROSTER = [
-    ("4426338", "QB"),   # Bo Nix
-    ("4429795", "RB"),   # Jahmyr Gibbs
-    ("4567048", "RB"),   # Kenneth Walker III
-    ("4428331", "WR"),   # Rashee Rice
-    ("4701936", "WR"),   # Matthew Golden
-    ("3128429", "WR"),   # Courtland Sutton
-    ("2576925", "TE"),   # Darren Waller
-    ("-16033", "D/ST"),  # Ravens D/ST
-    ("4574716", "K"),    # Harrison Mevis
+    # Starters
+    ("4426338", "QB", "Starters"),    # Bo Nix
+    ("4429795", "RB", "Starters"),    # Jahmyr Gibbs
+    ("4567048", "RB", "Starters"),    # Kenneth Walker III
+    ("4428331", "WR", "Starters"),    # Rashee Rice
+    ("4701936", "WR", "Starters"),    # Matthew Golden
+    ("3128429", "WR", "Starters"),    # Courtland Sutton
+    ("2576925", "TE", "Starters"),    # Darren Waller
+    ("-16033", "D/ST", "Starters"),   # Ravens D/ST
+    ("4574716", "K", "Starters"),     # Harrison Mevis
+    # Bench
+    ("3052587", "QB", "Bench"),       # Baker Mayfield
+    ("4241985", "RB", "Bench"),       # J.K. Dobbins
+    ("4241457", "RB", "Bench"),       # Najee Harris
+    ("3121023", "TE", "Bench"),       # Dallas Goedert
+    ("-16007", "D/ST", "Bench"),      # Broncos D/ST
+    ("17427", "K", "Bench"),          # Cairo Santos
+    # Injured reserve
+    ("4360569", "RB", "IR"),          # Jordan Mason
 ]
 FANTASY_API = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/%s/segments/0/leaguedefaults/%s?view=kona_player_info"
 SCORING = {"ppr": "3", "std": "1"}  # ESPN default league settings: 3 = PPR, 1 = standard
 
 
 def get_fantasy(season, week, scoring_id):
-    ids = [int(i) for i, _ in FANTASY_ROSTER]
+    ids = [int(i) for i, _, _ in FANTASY_ROSTER]
     flt = {"players": {"filterIds": {"value": ids},
                        "filterStatsForTopScoringPeriodIds": {
                            "value": 18,
@@ -397,10 +407,10 @@ def fantasy(nfl_scoreboard):
         by_team[g["away"]["id"]] = (g, "@", g["home"])
     feeds = {k: get_fantasy(season, week, v) for k, v in SCORING.items()}
     players = []
-    for pid, slot in FANTASY_ROSTER:
+    for pid, slot, group in FANTASY_ROSTER:
         base = feeds["ppr"].get(pid) or feeds["std"].get(pid) or {}
         team_id = str(base.get("proTeamId") or "")
-        p = {"id": pid, "slot": slot, "name": base.get("fullName"), "teamId": team_id,
+        p = {"id": pid, "slot": slot, "group": group, "name": base.get("fullName"), "teamId": team_id,
              "injuryStatus": base.get("injuryStatus"),
              "owned": (base.get("ownership") or {}).get("percentOwned"),
              "scoring": {k: fantasy_points(feeds[k].get(pid, {}), season, week) for k in SCORING}}

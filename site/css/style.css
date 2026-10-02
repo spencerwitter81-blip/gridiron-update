@@ -218,6 +218,10 @@ table.t caption { text-align: left; font-weight: bold; padding: 6px 0 3px; color
 .inj { background: #c00; color: #fff; font-size: 9px; font-weight: bold; padding: 1px 4px; text-transform: uppercase; }
 table.t img.hs { width: 34px; height: 25px; object-fit: cover; object-position: top; background: #eee; border: 1px solid #ccc; }
 table.ff td { vertical-align: middle; }
+table.ff tr.grp td { background: #333 !important; color: #fff; font-weight: bold; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; padding: 3px 6px; }
+table.ff tr.res td { color: #555; }
+details.more { margin-bottom: 10px; }
+details.more > summary { cursor: pointer; background: linear-gradient(#f4f4f4, #d6d6d6); border: 1px solid #999; padding: 5px 8px; font-weight: bold; font-size: 11px; text-transform: uppercase; margin-bottom: 8px; }
 .pnote { background: #f6f6f6; border-left: 3px solid var(--red); padding: 5px 7px; margin-top: 6px; font-size: 11px; }
 
 /* Golf */
