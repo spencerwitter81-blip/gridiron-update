@@ -183,6 +183,14 @@
     return box(title, '<div class="matchup">' + sideHtml(away) + mid + sideHtml(home) + '</div><div class="time" style="text-align:center;margin-top:6px">' + info + "</div>",
       { cls: "blk", foot: g.link ? ext(g.link, g.state === "post" ? "Box score &raquo;" : "Game preview &raquo;") : "" });
   }
+  function teamNews(t) {
+    var nick = (t.name || "").replace(t.short || "", "").trim();
+    var re = new RegExp("\\b(" + [t.short, nick].filter(Boolean).join("|") + ")\\b", "i");
+    var mine = [], other = [];
+    (t.news || []).forEach(function (a) { (re.test(a.headline + " " + a.desc) ? mine : other).push(a); });
+    return box(esc(t.short || t.name) + " Headlines", mine.length ? stories(mine, 12) : empty("No stories mentioning the " + (t.short || t.name) + " in this hour's feed.")) +
+      (other.length ? box("Related " + (t.key === "broncos" ? "NFL" : "College Football") + " Stories", heads(other, 8), { cls: "blk" }) : "");
+  }
   function scheduleTable(team) {
     var rows = (team.schedule || []).map(function (g) {
       var o = oppOf(team, g);
@@ -205,7 +213,7 @@
     }
     return '<div class="wrap">' +
       '<div class="util"><span>' + esc(today) + '</span><span><a href="index.html">Home</a><span class="sep">|</span><a href="nfl.html">NFL</a><span class="sep">|</span><a href="college-football.html">NCAAF</a><span class="sep">|</span><a href="golf.html">Golf</a><span class="sep">|</span><a href="lacrosse.html">Lacrosse</a></span></div>' +
-      '<div class="mast"><a class="logo" href="index.html"><span class="ball"></span>GRIDIRON UPDATE <small>.COM</small></a>' +
+      '<div class="mast"><a class="logo" href="index.html"><span class="ball"></span>GRIDIRON UPDATE</a>' +
       '<div class="mast-right">Football &middot; Golf &middot; Lacrosse<br>Last update: <b>' + esc(meta.updated ? fmtDate(meta.updated) : "—") + "</b> (" + esc(ago(meta.updated)) + ')<br><span class="live">AUTO-UPDATES HOURLY</span></div></div>' +
       '<nav class="nav">' + nav + "</nav>" + sub + content +
       '<div class="footer">Gridiron Update &middot; Scores, standings, polls &amp; headlines refreshed every hour from ESPN public data feeds. Stories link to their original source.<br>' +
@@ -217,7 +225,7 @@
       li("sec", "sec.html", "SEC") + li("acc", "acc.html", "ACC") + "</ul><h4>My Teams</h4><ul>" +
       li("broncos", "broncos.html", "Denver Broncos") + li("boston-college", "boston-college.html", "Boston College") + li("florida", "florida.html", "Florida Gators") +
       "</ul><h4>Other Sports</h4><ul>" + li("golf", "golf.html", "Golf") + li("lacrosse", "lacrosse.html", "Lacrosse") + "</ul>" +
-      '<div class="ad"><b>FREE UPDATES!</b>This page refreshes itself. New data lands every hour, on the hour.</div></aside>';
+      '<div class="ad"><b>HOW UPDATES WORK</b>New data is pulled about once an hour (GitHub can run it a few minutes late). The time of the last pull is shown at the top of every page.</div></aside>';
   }
   function layout(main, side, noRail) {
     return '<div class="cols' + (noRail ? " two" : "") + '">' + (noRail ? "" : rail()) + '<main class="main">' + main + '</main><aside class="side">' + side + "</aside></div>";
@@ -244,7 +252,7 @@
     });
     if (!items.length) items.push('<span class="it">Loading the Bottom Line&hellip;</span>');
     var dur = Math.max(40, items.length * 6);
-    return '<div class="ticker" aria-label="Scores ticker"><div class="lbl">BOTTOM LINE<small>&#9679; LIVE</small></div><div style="overflow:hidden;flex:1"><div class="track" style="--dur:' + dur + 's">' + items.join("") + "</div></div></div>";
+    return '<div class="ticker" aria-label="Scores ticker"><div class="lbl">BOTTOM LINE<small>UPDATED HOURLY</small></div><div style="overflow:hidden;flex:1"><div class="track" style="--dur:' + dur + 's">' + items.join("") + "</div></div></div>";
   }
 
   /* ---------------- pages ---------------- */
@@ -256,7 +264,7 @@
     teams.forEach(function (t) {
       var nick = (t.name || "").replace(t.short || "", "").trim();
       var re = new RegExp("\\b(" + [t.short, nick].filter(Boolean).join("|") + ")\\b", "i");
-      (t.news || []).forEach(function (a) { pool.push(Object.assign({ team: t.short || t.name, about: re.test(a.headline + " " + a.desc) }, a)); });
+      (t.news || []).forEach(function (a) { var about = re.test(a.headline + " " + a.desc); pool.push(Object.assign({}, a, { team: about ? (t.short || t.name) : (t.key === "broncos" ? "NFL" : "NCAAF"), about: about })); });
     });
     var newest = function (a, b) { return (b.published || "").localeCompare(a.published || ""); };
     var withImg = pool.filter(function (a) { return a.image; }).sort(newest);
@@ -317,12 +325,13 @@
     var ap = (((D.cfb || {}).rankings || {})["AP Top 25"] || {}).ranks || [];
     var ranked = ap.filter(function (r) { return ids[r.id]; });
     var undef = rows.filter(function (r) { return r.overall && /-0$/.test(r.overall); }).length;
-    var leader = rows[0];
+    var best = rows[0] && rows[0].conf;
+    var leaders = best ? rows.filter(function (r) { return r.conf === best; }).map(function (r) { return r.abbr; }) : [];
     var facts = '<div class="factgrid">' +
       '<div class="fact"><b>' + rows.length + "</b><span>Teams</span></div>" +
       '<div class="fact"><b>' + ranked.length + "</b><span>In AP Top 25</span></div>" +
       '<div class="fact"><b>' + undef + "</b><span>Unbeaten</span></div>" +
-      '<div class="fact"><b>' + esc(leader ? leader.abbr : "-") + "</b><span>Conf. leader</span></div></div>";
+      '<div class="fact"><b>' + esc(leaders.length ? leaders.join(", ") : "-") + "</b><span>" + (leaders.length > 1 ? "Tied for best conf. record" : "Best conf. record") + (best ? " (" + esc(best) + ")" : "") + "</span></div></div>";
     var main = box(label + " At a Glance", facts) +
       box(label + " Scoreboard", scores(c.scoreboard)) +
       box(label + " Standings", standTable(rows, ["conf", "overall", "home", "away", "pf", "pa", "diff", "streak"]), { cls: "blk" }) +
@@ -361,7 +370,7 @@
     var main = box("By the Numbers", facts) +
       '<div class="lead" style="grid-template-columns:1fr 1fr;gap:10px">' + matchup(t, t.last, "Last Game") + matchup(t, t.next, "Next Game") + "</div>" +
       box(esc(t.season || "") + " Schedule &amp; Results", scheduleTable(t), { foot: t.link ? ext(t.link, "Team clubhouse &raquo;") : "" }) +
-      box(esc(t.short || t.name) + " Headlines", stories(t.news, 12));
+      teamNews(t);
     var side = conf + (key !== "broncos" ? box("AP Top 25", pollTable((((D.cfb || {}).rankings) || {})["AP Top 25"], 25, true)) : box("NFL Headlines", heads((D.nfl || {}).news, 10)));
     return head + layout(main, side);
   }
