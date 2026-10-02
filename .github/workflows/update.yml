@@ -32,6 +32,9 @@ jobs:
       - name: Fetch latest scores, standings & headlines
         run: python scripts/fetch_data.py
 
+      - name: Stamp asset URLs so browsers load the newest CSS/JS
+        run: sed -i "s/__BUILD__/${GITHUB_RUN_ID}/g" site/*.html
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
