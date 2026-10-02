@@ -13,6 +13,8 @@
     ["cfb", "college-football.html", "College Football"],
     ["sec", "sec.html", "SEC"],
     ["acc", "acc.html", "ACC"],
+    ["big10", "big-ten.html", "Big Ten"],
+    ["big12", "big-12.html", "Big 12"],
     ["broncos", "broncos.html", "Broncos"],
     ["boston-college", "boston-college.html", "Boston College"],
     ["florida", "florida.html", "Gators"],
@@ -20,7 +22,7 @@
     ["golf", "golf.html", "Golf"],
     ["lacrosse", "lacrosse.html", "Lacrosse"]
   ];
-  var FOOTBALL = ["nfl", "cfb", "sec", "acc", "broncos", "boston-college", "florida", "fantasy"];
+  var FOOTBALL = ["nfl", "cfb", "sec", "acc", "big10", "big12", "broncos", "boston-college", "florida", "fantasy"];
 
   /* ---------------- helpers ---------------- */
   function esc(s) {
@@ -223,7 +225,8 @@
   function rail() {
     function li(k, h, t) { return '<li><a href="' + h + '" class="' + (k === PAGE ? "on" : "") + '">' + t + "</a></li>"; }
     return '<aside class="side rail"><h4>Football</h4><ul>' + li("nfl", "nfl.html", "NFL") + li("cfb", "college-football.html", "College Football") +
-      li("sec", "sec.html", "SEC") + li("acc", "acc.html", "ACC") + "</ul><h4>My Teams</h4><ul>" +
+      li("sec", "sec.html", "SEC") + li("acc", "acc.html", "ACC") +
+      li("big10", "big-ten.html", "Big Ten") + li("big12", "big-12.html", "Big 12") + "</ul><h4>My Teams</h4><ul>" +
       li("broncos", "broncos.html", "Denver Broncos") + li("boston-college", "boston-college.html", "Boston College") + li("florida", "florida.html", "Florida Gators") + li("fantasy", "fantasy.html", "My Fantasy Team") +
       "</ul><h4>Other Sports</h4><ul>" + li("golf", "golf.html", "Golf") + li("lacrosse", "lacrosse.html", "Lacrosse") + "</ul>" +
       '<div class="ad"><b>HOW UPDATES WORK</b>New data is pulled about once an hour (GitHub can run it a few minutes late). The time of the last pull is shown at the top of every page.</div></aside>';
@@ -332,7 +335,8 @@
       '<div class="fact"><b>' + rows.length + "</b><span>Teams</span></div>" +
       '<div class="fact"><b>' + ranked.length + "</b><span>In AP Top 25</span></div>" +
       '<div class="fact"><b>' + undef + "</b><span>Unbeaten</span></div>" +
-      '<div class="fact"><b>' + esc(leaders.length ? leaders.join(", ") : "-") + "</b><span>" + (leaders.length > 1 ? "Tied for best conf. record" : "Best conf. record") + (best ? " (" + esc(best) + ")" : "") + "</span></div></div>";
+      '<div class="fact"><b>' + (leaders.length > 3 ? leaders.length + " teams" : esc(leaders.length ? leaders.join(", ") : "-")) + "</b><span>" + (leaders.length > 1 ? "Tied for best conf. record" : "Best conf. record") + (best ? " (" + esc(best) + ")" : "") + "</span>" +
+      (leaders.length > 3 ? '<div class="time">' + esc(leaders.join(", ")) + "</div>" : "") + "</div></div>";
     var main = box(label + " At a Glance", facts) +
       box(label + " Scoreboard", scores(c.scoreboard)) +
       box(label + " Standings", standTable(rows, ["conf", "overall", "home", "away", "pf", "pa", "diff", "streak"]), { cls: "blk" }) +
@@ -344,6 +348,8 @@
   }
   pages.sec = function () { return confPage("sec", "SEC", "florida"); };
   pages.acc = function () { return confPage("acc", "ACC", "boston-college"); };
+  pages.big10 = function () { return confPage("big10", "Big Ten"); };
+  pages.big12 = function () { return confPage("big12", "Big 12"); };
 
   function teamPage(key) {
     var t = D[key];

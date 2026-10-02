@@ -27,7 +27,7 @@ gh workflow run update.yml
 | `index.html` | Top story, My Teams cards, headlines, NFL/SEC/ACC scoreboards, AP Top 25, golf & lacrosse snapshots |
 | `nfl.html` | Weekly scoreboard, all 8 division standings, NFL headlines |
 | `college-football.html` | Top 25 scoreboard, AP & Coaches polls, headlines |
-| `sec.html` / `acc.html` | Conference scoreboard, full standings, ranked teams, conference headlines |
+| `sec.html` / `acc.html` / `big-ten.html` / `big-12.html` | Conference scoreboard, full standings, ranked teams, conference headlines |
 | `broncos.html` / `boston-college.html` / `florida.html` | Record, splits, scoring, last/next game, full schedule, standings, team news |
 | `fantasy.html` | Your fantasy roster: ESPN PPR/standard points by week, Week projections, matchups, injury status, season stats, player notes & news |
 | `golf.html` | Tabbed tour leaderboards and golf headlines |

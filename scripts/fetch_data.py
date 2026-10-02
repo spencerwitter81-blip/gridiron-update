@@ -21,7 +21,8 @@ TEAMS = {
     "boston-college": {"sport": "football/college-football", "id": "103", "label": "Boston College Eagles"},
     "florida": {"sport": "football/college-football", "id": "57", "label": "Florida Gators"},
 }
-SEC_GROUP, ACC_GROUP = "8", "1"
+# ESPN college football group IDs (verified against the standings feed)
+CONFERENCES = {"sec": "8", "acc": "1", "big10": "5", "big12": "4"}
 
 errors = []
 
@@ -482,17 +483,15 @@ def main():
     write("fantasy", fantasy(nfl["scoreboard"]))
 
     # ---------- College football ----------
-    sec = cfb_standings(SEC_GROUP)
-    acc = cfb_standings(ACC_GROUP)
     cfb = {
         "rankings": rankings(),
-        "sec": {"standings": sec, "scoreboard": scoreboard("football/college-football", groups=SEC_GROUP),
-                "news": conference_news(sec)},
-        "acc": {"standings": acc, "scoreboard": scoreboard("football/college-football", groups=ACC_GROUP),
-                "news": conference_news(acc)},
         "top25": scoreboard("football/college-football"),
         "news": news("football/college-football", 16),
     }
+    for key, group in CONFERENCES.items():
+        st = cfb_standings(group)
+        cfb[key] = {"standings": st, "scoreboard": scoreboard("football/college-football", groups=group),
+                    "news": conference_news(st)}
     write("cfb", cfb)
 
     # ---------- Featured teams ----------
